@@ -1,5 +1,8 @@
 import os
 import streamlit as st
+pip install langchain
+from langchain.embeddings import HuggingFaceEmbeddings
+
 
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
