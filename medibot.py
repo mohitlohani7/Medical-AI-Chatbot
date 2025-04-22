@@ -29,7 +29,7 @@ def set_custom_prompt(custom_prompt_template):
     return prompt
 
 
-def load_llm(mistralai/Mistral-7B-Instruct-v0.3, HF_TOKEN):
+def load_llm(model_name, HF_TOKEN):
     llm=HuggingFaceEndpoint(
         repo_id=huggingface_repo_id,
         temperature=0.5,
