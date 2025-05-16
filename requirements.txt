@@ -1,5 +1,8 @@
 streamlit
-langchain
 openai
+langchain
 langchain-openai
+langchain-google-genai
 python-dotenv
+tiktoken
+faiss-cpu
