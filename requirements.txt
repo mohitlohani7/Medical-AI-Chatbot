@@ -10,3 +10,5 @@ openai
 faiss-cpu
 tiktoken
 python-dotenv
+transformers
+torch
