@@ -39,7 +39,13 @@ def main():
         model_name="sentence-transformers/all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"}  # Force CPU usage to avoid Torch device errors
     )
-    db = FAISS.load_local(DB_FAISS_PATH, embedding_model, allow_dangerous_deserialization=True)
+
+    db = FAISS.load_local(
+        DB_FAISS_PATH,
+        embedding_model,
+        index_name="index",  # ← match your file name index.faiss and index.pkl
+        allow_dangerous_deserialization=True
+    )
 
     # Setup QA Chain
     qa_chain = RetrievalQA.from_chain_type(
