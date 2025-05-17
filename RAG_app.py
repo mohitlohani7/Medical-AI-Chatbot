@@ -1,56 +1,54 @@
-import streamlit as st
-from PyPDF2 import PdfReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import FAISS
-from langchain.embeddings.openai import OpenAIEmbeddings
+import os
+from langchain_huggingface import HuggingFaceEndpoint, HuggingFaceEmbeddings
+from langchain_core.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
-from langchain.llms import OpenAI
+from langchain_community.vectorstores import FAISS
 
-def load_documents(uploaded_files):
-    docs = []
-    for uploaded_file in uploaded_files:
-        if uploaded_file.type == "application/pdf":
-            pdf = PdfReader(uploaded_file)
-            text = ""
-            for page in pdf.pages:
-                text += page.extract_text()
-            docs.append(text)
-        elif uploaded_file.type == "text/plain":
-            text = uploaded_file.getvalue().decode("utf-8")
-            docs.append(text)
-        else:
-            st.warning(f"Unsupported file type: {uploaded_file.name}")
-    return docs
+HF_TOKEN = os.environ.get("HF_TOKEN")
+HUGGINGFACE_REPO_ID = "mistralai/Mistral-7B-Instruct-v0.3"
+
+CUSTOM_PROMPT_TEMPLATE = """
+Use the pieces of information provided in the context to answer user's question.
+If you dont know the answer, just say that you dont know, dont try to make up an answer. 
+Dont provide anything out of the given context
+
+Context: {context}
+Question: {question}
+
+Start the answer directly. No small talk please.
+"""
+
+def load_llm(repo_id):
+    return HuggingFaceEndpoint(
+        repo_id=repo_id,
+        temperature=0.5,
+        model_kwargs={"token": HF_TOKEN, "max_length": "512"},
+    )
+
+def set_custom_prompt(template):
+    return PromptTemplate(template=template, input_variables=["context", "question"])
 
 def main():
-    st.title("RAG Chatbot")
+    # Load FAISS Vectorstore
+    DB_FAISS_PATH = "vectorstore/db_faiss"
+    embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    db = FAISS.load_local(DB_FAISS_PATH, embedding_model, allow_dangerous_deserialization=True)
 
-    uploaded_files = st.file_uploader("Upload PDFs or Text files", type=["pdf", "txt"], accept_multiple_files=True)
-    
-    if uploaded_files:
-        documents = load_documents(uploaded_files)
+    # Setup QA Chain
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=load_llm(HUGGINGFACE_REPO_ID),
+        chain_type="stuff",
+        retriever=db.as_retriever(search_kwargs={"k": 3}),
+        return_source_documents=True,
+        chain_type_kwargs={"prompt": set_custom_prompt(CUSTOM_PROMPT_TEMPLATE)},
+    )
 
-        # Split documents into chunks
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-        texts = []
-        for doc in documents:
-            texts.extend(text_splitter.split_text(doc))
+    # Example query
+    query = input("Write your query here: ")
+    response = qa_chain.invoke({"query": query})
 
-        # Create embeddings and vectorstore
-        embeddings = OpenAIEmbeddings()
-        vectorstore = FAISS.from_texts(texts, embeddings)
-
-        # Create retriever and QA chain
-        retriever = vectorstore.as_retriever()
-        qa = RetrievalQA.from_chain_type(llm=OpenAI(), chain_type="stuff", retriever=retriever)
-
-        query = st.text_input("Ask your question about the documents:")
-        if query:
-            with st.spinner("Generating answer..."):
-                answer = qa.run(query)
-            st.write("**Answer:**", answer)
-    else:
-        st.info("Please upload one or more PDF or TXT files to start.")
+    print("\nAnswer:\n", response["result"])
+    print("\nSource Documents:\n", response["source_documents"])
 
 if __name__ == "__main__":
     main()
