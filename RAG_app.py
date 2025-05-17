@@ -1,4 +1,8 @@
 import os
+
+# Disable CUDA to force CPU usage
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 from langchain_huggingface import HuggingFaceEndpoint, HuggingFaceEmbeddings
 from langchain_core.prompts import PromptTemplate
 from langchain.chains import RetrievalQA
@@ -31,7 +35,10 @@ def set_custom_prompt(template):
 def main():
     # Load FAISS Vectorstore
     DB_FAISS_PATH = "vectorstore/db_faiss"
-    embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embedding_model = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"}  # Force CPU usage to avoid Torch device errors
+    )
     db = FAISS.load_local(DB_FAISS_PATH, embedding_model, allow_dangerous_deserialization=True)
 
     # Setup QA Chain
